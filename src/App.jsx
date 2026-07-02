@@ -1,3 +1,5 @@
+import { supabase } from './lib/supabase'
+console.log(supabase)
 import AssignmentCard from './components/AssignmentCard'
 
 function App() {
