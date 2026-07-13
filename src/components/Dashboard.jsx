@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import NewAssignmentForm from './NewAssignmentForm'
 
 function Dashboard({ user }) {
   const [assignments, setAssignments] = useState([])
   const [loading, setLoading] = useState(true)
-
+  const [showForm, setShowForm] = useState(false)
   useEffect(() => {
     fetchAssignments()
   }, [])
@@ -25,7 +26,9 @@ function Dashboard({ user }) {
   const handleSignOut = async () => {
     await supabase.auth.signOut()
   }
-
+  const handleAssignmentAdded = (newAssignment) => {
+    setAssignments([...assignments, newAssignment])
+  }
   return (
     <div className="min-h-screen bg-gray-100">
       <div className="bg-white shadow-sm px-6 py-4 flex items-center justify-between">
@@ -44,7 +47,9 @@ function Dashboard({ user }) {
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold text-gray-800">My Assignments</h2>
-          <button className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
+          <button 
+          onClick={() => setShowForm(true)}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
             + New Assignment
           </button>
         </div>
@@ -72,11 +77,19 @@ function Dashboard({ user }) {
                 </div>
                 <p className="text-sm text-gray-500">Due: {assignment.due_date}</p>
                 <p className="text-xs text-indigo-400 mt-1">{assignment.type}</p>
+                
               </div>
             ))}
           </div>
         )}
       </div>
+      {showForm && (
+  <NewAssignmentForm
+    user={user}
+    onAssignmentAdded={handleAssignmentAdded}
+    onClose={() => setShowForm(false)}
+  />
+)}
     </div>
   )
 }
