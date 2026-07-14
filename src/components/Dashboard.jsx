@@ -29,6 +29,18 @@ function Dashboard({ user }) {
   const handleAssignmentAdded = (newAssignment) => {
     setAssignments([...assignments, newAssignment])
   }
+  const handleDeleteAssignment = async (id) => {
+  const { error } = await supabase
+    .from('assignments')
+    .delete()
+    .eq('id', id)
+
+  if (error) {
+    console.log(error)
+  } else {
+    setAssignments(assignments.filter((a) => a.id !== id))
+  }
+}
   return (
     <div className="min-h-screen bg-gray-100">
       <div className="bg-white shadow-sm px-6 py-4 flex items-center justify-between">
@@ -77,7 +89,13 @@ function Dashboard({ user }) {
                 </div>
                 <p className="text-sm text-gray-500">Due: {assignment.due_date}</p>
                 <p className="text-xs text-indigo-400 mt-1">{assignment.type}</p>
-                
+                <div className="flex justify-end mt-4">
+                  <button
+                   onClick={() => handleDeleteAssignment(assignment.id)}
+                   className="text-xs text-red-400 hover:text-red-600 font-medium transition">
+                    Delete
+                  </button>
+                </div> 
               </div>
             ))}
           </div>
