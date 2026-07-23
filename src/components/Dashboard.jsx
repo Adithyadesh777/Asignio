@@ -29,11 +29,28 @@ function Dashboard({ user }) {
   const handleAssignmentAdded = (newAssignment) => {
     setAssignments([...assignments, newAssignment])
   }
+  const handleToggleStatus = async (id, currentStatus) => {
+  const newStatus = currentStatus === 'pending' ? 'done' : 'pending'
+
+  const { error } = await supabase
+    .from('assignments')
+    .update({ status: newStatus })
+    .eq('id', id)
+
+  if (error) {
+    console.log(error)
+  } else {
+    setAssignments(assignments.map((a) =>
+      a.id === id ? { ...a, status: newStatus } : a
+    ))
+  }
+}
   const handleDeleteAssignment = async (id) => {
   const { error } = await supabase
     .from('assignments')
     .delete()
     .eq('id', id)
+    
 
   if (error) {
     console.log(error)
@@ -89,13 +106,24 @@ function Dashboard({ user }) {
                 </div>
                 <p className="text-sm text-gray-500">Due: {assignment.due_date}</p>
                 <p className="text-xs text-indigo-400 mt-1">{assignment.type}</p>
-                <div className="flex justify-end mt-4">
+                <div className="flex justify-between items-center mt-4">
                   <button
-                   onClick={() => handleDeleteAssignment(assignment.id)}
-                   className="text-xs text-red-400 hover:text-red-600 font-medium transition">
+                    onClick={() => handleToggleStatus(assignment.id, assignment.status)}
+                    className={`text-xs font-medium transition ${
+                      assignment.status === 'done'
+                        ? 'text-yellow-500 hover:text-yellow-600'
+                        : 'text-green-500 hover:text-green-600'
+                    }`}
+                  >
+                    {assignment.status === 'done' ? 'Mark as pending' : 'Mark as Done'}
+                  </button>
+                  <button
+                    onClick={() => handleDeleteAssignment(assignment.id)}
+                    className="text-xs text-red-400 hover:text-red-600 font-medium transition"
+                  >
                     Delete
                   </button>
-                </div> 
+                </div>
               </div>
             ))}
           </div>
