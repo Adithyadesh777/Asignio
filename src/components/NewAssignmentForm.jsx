@@ -5,8 +5,37 @@ function NewAssignmentForm({ user, onAssignmentAdded, onClose }) {
   const [title, setTitle] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [type, setType] = useState('individual')
+  const [file, setFile] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  const handleFileChange = (e) => {
+    const selected = e.target.files[0]
+    if (selected && selected.type === 'application/pdf') {
+      setFile(selected)
+      setError('')
+    } else {
+      setError('Please upload a PDF file only')
+      setFile(null)
+    }
+  }
+
+  const uploadFile = async () => {
+    if (!file) return null
+
+    const filePath = `${user.id}/${Date.now()}_${file.name}`
+
+    const { error } = await supabase.storage
+      .from('guidelines')
+      .upload(filePath, file)
+
+    if (error) {
+      setError(error.message)
+      return null
+    }
+
+    return filePath
+  }
 
   const handleSubmit = async () => {
     if (!title || !dueDate) {
@@ -17,6 +46,15 @@ function NewAssignmentForm({ user, onAssignmentAdded, onClose }) {
     setLoading(true)
     setError('')
 
+    let fileUrl = null
+    if (file) {
+      fileUrl = await uploadFile()
+      if (!fileUrl) {
+        setLoading(false)
+        return
+      }
+    }
+
     const { data, error } = await supabase
       .from('assignments')
       .insert([{
@@ -24,7 +62,8 @@ function NewAssignmentForm({ user, onAssignmentAdded, onClose }) {
         due_date: dueDate,
         type,
         status: 'pending',
-        user_id: user.id
+        user_id: user.id,
+        file_url: fileUrl
       }])
       .select()
 
@@ -73,7 +112,7 @@ function NewAssignmentForm({ user, onAssignmentAdded, onClose }) {
           />
         </div>
 
-        <div className="mb-6">
+        <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
           <select
             value={type}
@@ -83,6 +122,34 @@ function NewAssignmentForm({ user, onAssignmentAdded, onClose }) {
             <option value="individual">Individual</option>
             <option value="group">Group</option>
           </select>
+        </div>
+
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Guideline File <span className="text-gray-400">(optional — PDF only)</span>
+          </label>
+          <div className="border-2 border-dashed border-gray-300 rounded-lg px-4 py-6 text-center hover:border-indigo-400 transition">
+            <input
+              type="file"
+              accept=".pdf"
+              onChange={handleFileChange}
+              className="hidden"
+              id="file-upload"
+            />
+            <label htmlFor="file-upload" className="cursor-pointer">
+              {file ? (
+                <div>
+                  <p className="text-sm font-medium text-indigo-600">{file.name}</p>
+                  <p className="text-xs text-gray-400 mt-1">Click to change file</p>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-sm text-gray-500">Click to upload PDF</p>
+                  <p className="text-xs text-gray-400 mt-1">PDF files only</p>
+                </div>
+              )}
+            </label>
+          </div>
         </div>
 
         {error && (
