@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import NewAssignmentForm from './NewAssignmentForm'
+import { generateAssignmentPlan } from '../lib/gemini'
+import { extractTextFromPDF } from '../lib/pdfExtractor'
 
 function Dashboard({ user }) {
   const [assignments, setAssignments] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [generatingPlan, setGeneratingPlan] = useState(null)
+
   useEffect(() => {
     fetchAssignments()
   }, [])
@@ -26,40 +30,85 @@ function Dashboard({ user }) {
   const handleSignOut = async () => {
     await supabase.auth.signOut()
   }
+
   const handleAssignmentAdded = (newAssignment) => {
     setAssignments([...assignments, newAssignment])
   }
-  const handleToggleStatus = async (id, currentStatus) => {
-  const newStatus = currentStatus === 'pending' ? 'done' : 'pending'
 
-  const { error } = await supabase
-    .from('assignments')
-    .update({ status: newStatus })
-    .eq('id', id)
-
-  if (error) {
-    console.log(error)
-  } else {
-    setAssignments(assignments.map((a) =>
-      a.id === id ? { ...a, status: newStatus } : a
-    ))
-  }
-}
   const handleDeleteAssignment = async (id) => {
-  const { error } = await supabase
-    .from('assignments')
-    .delete()
-    .eq('id', id)
-    
+    const { error } = await supabase
+      .from('assignments')
+      .delete()
+      .eq('id', id)
 
-  if (error) {
-    console.log(error)
-  } else {
-    setAssignments(assignments.filter((a) => a.id !== id))
+    if (error) {
+      console.log(error)
+    } else {
+      setAssignments(assignments.filter((a) => a.id !== id))
+    }
   }
-}
+
+  const handleToggleStatus = async (id, currentStatus) => {
+    const newStatus = currentStatus === 'pending' ? 'done' : 'pending'
+
+    const { error } = await supabase
+      .from('assignments')
+      .update({ status: newStatus })
+      .eq('id', id)
+
+    if (error) {
+      console.log(error)
+    } else {
+      setAssignments(assignments.map((a) =>
+        a.id === id ? { ...a, status: newStatus } : a
+      ))
+    }
+  }
+
+  const handleGeneratePlan = async (assignment) => {
+    if (!assignment.file_url) {
+      alert('Please attach a guideline PDF first')
+      return
+    }
+
+    setGeneratingPlan(assignment.id)
+
+    try {
+      const { data, error } = await supabase.storage
+        .from('guidelines')
+        .download(assignment.file_url)
+
+      if (error) throw error
+
+      const blob = await data
+      const file = new File([blob], 'guideline.pdf', { type: 'application/pdf' })
+      const text = await extractTextFromPDF(file)
+
+      const plan = await generateAssignmentPlan(text, assignment.title)
+
+      const { error: updateError } = await supabase
+        .from('assignments')
+        .update({ ai_plan: plan })
+        .eq('id', assignment.id)
+
+      if (updateError) throw updateError
+
+      setAssignments(assignments.map((a) =>
+        a.id === assignment.id ? { ...a, ai_plan: plan } : a
+      ))
+
+    } catch (error) {
+      console.log(error)
+      alert('Failed to generate plan. Please try again.')
+    }
+
+    setGeneratingPlan(null)
+  }
+
   return (
     <div className="min-h-screen bg-gray-100">
+
+      {/* Header */}
       <div className="bg-white shadow-sm px-6 py-4 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-indigo-700">Asignio</h1>
         <div className="flex items-center gap-4">
@@ -73,12 +122,15 @@ function Dashboard({ user }) {
         </div>
       </div>
 
+      {/* Main content */}
       <div className="max-w-4xl mx-auto px-4 py-8">
+
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold text-gray-800">My Assignments</h2>
-          <button 
-          onClick={() => setShowForm(true)}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
+          <button
+            onClick={() => setShowForm(true)}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition"
+          >
             + New Assignment
           </button>
         </div>
@@ -94,6 +146,7 @@ function Dashboard({ user }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {assignments.map((assignment) => (
               <div key={assignment.id} className="bg-white rounded-xl shadow-sm p-6">
+
                 <div className="flex items-start justify-between mb-2">
                   <h3 className="font-semibold text-gray-800">{assignment.title}</h3>
                   <span className={`text-xs font-medium px-2 py-1 rounded-full ${
@@ -104,8 +157,29 @@ function Dashboard({ user }) {
                     {assignment.status}
                   </span>
                 </div>
+
                 <p className="text-sm text-gray-500">Due: {assignment.due_date}</p>
                 <p className="text-xs text-indigo-400 mt-1">{assignment.type}</p>
+
+                {assignment.file_url && (
+                  <button
+                    onClick={() => handleGeneratePlan(assignment)}
+                    disabled={generatingPlan === assignment.id}
+                    className="mt-3 w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-xs font-medium py-2 rounded-lg transition"
+                  >
+                    {generatingPlan === assignment.id ? 'Generating plan...' : '✨ Generate AI Plan'}
+                  </button>
+                )}
+
+                {assignment.ai_plan && (
+                  <div className="mt-4 bg-gray-50 rounded-lg p-4">
+                    <p className="text-xs font-semibold text-indigo-600 mb-2">AI Study Plan</p>
+                    <p className="text-xs text-gray-600 whitespace-pre-wrap leading-relaxed">
+                      {assignment.ai_plan}
+                    </p>
+                  </div>
+                )}
+
                 <div className="flex justify-between items-center mt-4">
                   <button
                     onClick={() => handleToggleStatus(assignment.id, assignment.status)}
@@ -115,7 +189,7 @@ function Dashboard({ user }) {
                         : 'text-green-500 hover:text-green-600'
                     }`}
                   >
-                    {assignment.status === 'done' ? 'Mark as pending' : 'Mark as Done'}
+                    {assignment.status === 'done' ? 'Mark as Pending' : 'Mark as Done'}
                   </button>
                   <button
                     onClick={() => handleDeleteAssignment(assignment.id)}
@@ -124,18 +198,22 @@ function Dashboard({ user }) {
                     Delete
                   </button>
                 </div>
+
               </div>
             ))}
           </div>
         )}
+
       </div>
+
       {showForm && (
-  <NewAssignmentForm
-    user={user}
-    onAssignmentAdded={handleAssignmentAdded}
-    onClose={() => setShowForm(false)}
-  />
-)}
+        <NewAssignmentForm
+          user={user}
+          onAssignmentAdded={handleAssignmentAdded}
+          onClose={() => setShowForm(false)}
+        />
+      )}
+
     </div>
   )
 }
