@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import NewAssignmentForm from './NewAssignmentForm'
+import EditAssignmentForm from './EditAssignmentForm'
 import { generateAssignmentPlan } from '../lib/gemini'
 import { extractTextFromPDF } from '../lib/pdfExtractor'
 
@@ -9,6 +10,7 @@ function Dashboard({ user }) {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [generatingPlan, setGeneratingPlan] = useState(null)
+  const [editingAssignment, setEditingAssignment] = useState(null)
 
   useEffect(() => {
     fetchAssignments()
@@ -105,6 +107,12 @@ function Dashboard({ user }) {
     setGeneratingPlan(null)
   }
 
+  const handleAssignmentUpdated = (updatedAssignment) => {
+    setAssignments(assignments.map((a) =>
+      a.id === updatedAssignment.id ? updatedAssignment : a
+    ))
+  }
+
   return (
     <div className="min-h-screen bg-gray-100">
 
@@ -147,6 +155,7 @@ function Dashboard({ user }) {
             {assignments.map((assignment) => (
               <div key={assignment.id} className="bg-white rounded-xl shadow-sm p-6">
 
+                {/* Title and status badge */}
                 <div className="flex items-start justify-between mb-2">
                   <h3 className="font-semibold text-gray-800">{assignment.title}</h3>
                   <span className={`text-xs font-medium px-2 py-1 rounded-full ${
@@ -158,9 +167,11 @@ function Dashboard({ user }) {
                   </span>
                 </div>
 
+                {/* Due date and type */}
                 <p className="text-sm text-gray-500">Due: {assignment.due_date}</p>
                 <p className="text-xs text-indigo-400 mt-1">{assignment.type}</p>
 
+                {/* Generate AI Plan button */}
                 {assignment.file_url && (
                   <button
                     onClick={() => handleGeneratePlan(assignment)}
@@ -171,6 +182,7 @@ function Dashboard({ user }) {
                   </button>
                 )}
 
+                {/* AI Plan display */}
                 {assignment.ai_plan && (
                   <div className="mt-4 bg-gray-50 rounded-lg p-4">
                     <p className="text-xs font-semibold text-indigo-600 mb-2">AI Study Plan</p>
@@ -180,6 +192,7 @@ function Dashboard({ user }) {
                   </div>
                 )}
 
+                {/* Action buttons */}
                 <div className="flex justify-between items-center mt-4">
                   <button
                     onClick={() => handleToggleStatus(assignment.id, assignment.status)}
@@ -191,12 +204,20 @@ function Dashboard({ user }) {
                   >
                     {assignment.status === 'done' ? 'Mark as Pending' : 'Mark as Done'}
                   </button>
-                  <button
-                    onClick={() => handleDeleteAssignment(assignment.id)}
-                    className="text-xs text-red-400 hover:text-red-600 font-medium transition"
-                  >
-                    Delete
-                  </button>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setEditingAssignment(assignment)}
+                      className="text-xs text-indigo-400 hover:text-indigo-600 font-medium transition"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDeleteAssignment(assignment.id)}
+                      className="text-xs text-red-400 hover:text-red-600 font-medium transition"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
 
               </div>
@@ -206,11 +227,22 @@ function Dashboard({ user }) {
 
       </div>
 
+      {/* New Assignment Form modal */}
       {showForm && (
         <NewAssignmentForm
           user={user}
           onAssignmentAdded={handleAssignmentAdded}
           onClose={() => setShowForm(false)}
+        />
+      )}
+
+      {/* Edit Assignment Form modal */}
+      {editingAssignment && (
+        <EditAssignmentForm
+          user={user}
+          assignment={editingAssignment}
+          onAssignmentUpdated={handleAssignmentUpdated}
+          onClose={() => setEditingAssignment(null)}
         />
       )}
 
