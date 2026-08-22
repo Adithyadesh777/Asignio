@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import Login from './components/Login'
 import Dashboard from './components/Dashboard'
+import JoinGroup from './components/JoinGroup'
 
 function App() {
   const [user, setUser] = useState(null)
@@ -28,7 +30,21 @@ function App() {
     )
   }
 
-  return user ? <Dashboard user={user} /> : <Login />
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route
+          path="/"
+          element={user ? <Dashboard user={user} /> : <Login />}
+        />
+        <Route
+          path="/join/:inviteCode"
+          element={user ? <JoinGroup user={user} /> : <Login />}
+        />
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+    </BrowserRouter>
+  )
 }
 
 export default App

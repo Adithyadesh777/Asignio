@@ -1,12 +1,14 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
-function Login() {
+function Login({ redirectTo = '/' }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isSignUp, setIsSignUp] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const navigate = useNavigate()
 
   const handleEmailAuth = async () => {
     setLoading(true)
@@ -18,7 +20,11 @@ function Login() {
       else setError('Check your email to confirm your account!')
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) setError(error.message)
+      if (error) {
+        setError(error.message)
+      } else {
+        navigate(redirectTo)
+      }
     }
     setLoading(false)
   }
@@ -26,7 +32,9 @@ function Login() {
   const handleGoogleLogin = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin }
+      options: {
+        redirectTo: `${window.location.origin}${redirectTo}`
+      }
     })
     if (error) setError(error.message)
   }
@@ -60,18 +68,14 @@ function Login() {
         }
       `}</style>
 
-      {/* LEFT SIDE: Beautiful 3D Glass-Node Moving Canvas */}
+      {/* LEFT SIDE */}
       <div className="hidden md:flex md:w-1/2 lg:w-7/12 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 p-16 flex-col justify-between relative overflow-hidden border-r border-slate-800/40">
         
-        {/* Soft Ambient Background Glows */}
         <div className="absolute top-1/3 left-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none"></div>
         <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-violet-500/10 rounded-full blur-[100px] pointer-events-none"></div>
 
-        {/* Moving Glassmorphic Structure Layer */}
         <div className="absolute inset-0 flex items-center justify-center scale-100 animated-network">
           <svg className="w-full h-full max-w-lg max-h-lg" viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
-            
-            {/* Definitions for 3D Glass Sphere Shading */}
             <defs>
               <radialGradient id="glassSphere" cx="35%" cy="35%" r="65%">
                 <stop offset="0%" stopColor="#ffffff" stopOpacity="0.45" />
@@ -85,7 +89,6 @@ function Login() {
               </linearGradient>
             </defs>
 
-            {/* Connecting Static Structural Lines */}
             <g stroke="url(#lineGrad)" strokeOpacity="0.3" className="network-line">
               <line x1="200" y1="90" x2="310" y2="170" />
               <line x1="310" y1="170" x2="310" y2="290" />
@@ -93,8 +96,6 @@ function Login() {
               <line x1="200" y1="350" x2="90" y2="290" />
               <line x1="90" y1="290" x2="90" y2="170" />
               <line x1="90" y1="170" x2="200" y2="90" />
-              
-              {/* Internal Lattice Connections */}
               <line x1="200" y1="90" x2="200" y2="220" />
               <line x1="90" y1="170" x2="200" y2="220" />
               <line x1="310" y1="170" x2="200" y2="220" />
@@ -103,14 +104,12 @@ function Login() {
               <line x1="200" y1="350" x2="200" y2="220" />
             </g>
 
-            {/* Kinetic Moving Energy Particles along paths */}
             <g stroke="url(#lineGrad)" strokeWidth="2" className="flow-particle" strokeOpacity="0.6">
               <line x1="200" y1="90" x2="310" y2="170" />
               <line x1="90" y1="290" x2="200" y2="220" />
               <line x1="200" y1="350" x2="200" y2="220" />
             </g>
 
-            {/* 3D-Look Glossy Spheres (Matching Gemini_Generated_Image_lk0yaalk0yaalk0y.png Structure) */}
             <circle cx="200" cy="90" r="16" fill="url(#glassSphere)" stroke="#818cf8" strokeWidth="0.5" strokeOpacity="0.5" />
             <circle cx="310" cy="170" r="20" fill="url(#glassSphere)" stroke="#818cf8" strokeWidth="0.5" strokeOpacity="0.5" />
             <circle cx="310" cy="290" r="18" fill="url(#glassSphere)" stroke="#818cf8" strokeWidth="0.5" strokeOpacity="0.5" />
@@ -118,19 +117,16 @@ function Login() {
             <circle cx="90" cy="290" r="19" fill="url(#glassSphere)" stroke="#818cf8" strokeWidth="0.5" strokeOpacity="0.5" />
             <circle cx="90" cy="170" r="17" fill="url(#glassSphere)" stroke="#818cf8" strokeWidth="0.5" strokeOpacity="0.5" />
             <circle cx="200" cy="220" r="24" fill="url(#glassSphere)" stroke="#6366f1" strokeWidth="1" strokeOpacity="0.7" />
-
           </svg>
         </div>
 
-        {/* Top Header Label */}
         <div className="relative z-10">
           <div className="inline-flex items-center gap-2 bg-slate-900/40 backdrop-blur-md border border-slate-800/60 px-3 py-1.5 rounded-full text-indigo-400 font-medium tracking-wider text-xs uppercase">
             <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 inline-block animate-ping"></span>
-            Smart Assignment Management System 
+            Smart Assignment Management System
           </div>
         </div>
 
-        {/* Core App Brand Block */}
         <div className="relative z-10 space-y-3">
           <h1 className="text-5xl font-serif font-semibold text-white tracking-tight">Asignio</h1>
           <p className="text-slate-400 text-lg font-light max-w-sm leading-relaxed">
@@ -138,31 +134,31 @@ function Login() {
           </p>
         </div>
 
-        {/* Minimal Copyright Statement */}
         <div className="relative z-10 text-xs text-slate-600 font-medium tracking-wide">
           © {new Date().getFullYear()} Asignio System Workspace.
         </div>
       </div>
 
-      {/* RIGHT SIDE: Interactive Authentic Form Panel */}
+      {/* RIGHT SIDE */}
       <div className="w-full md:w-1/2 lg:w-5/12 bg-white flex items-center justify-center p-8 sm:p-16 relative">
         <div className="w-full max-w-md space-y-8">
           
-          {/* Form Header */}
           <div className="text-center md:text-left space-y-2">
             <h2 className="text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
               {isSignUp ? 'Create account' : 'Login'}
             </h2>
             <p className="text-sm text-slate-500">
-              {isSignUp ? 'Sign up using your email and password credentials.' : 'Welcome back! Please enter your details.'}
+              {isSignUp
+                ? 'Sign up using your email and password credentials.'
+                : 'Welcome back! Please enter your details.'}
             </p>
           </div>
 
-          {/* Form Content Inputs */}
           <div className="space-y-5">
-            {/* Email Form Field */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 tracking-wide uppercase">Email Address</label>
+              <label className="text-xs font-semibold text-slate-700 tracking-wide uppercase">
+                Email Address
+              </label>
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -179,12 +175,15 @@ function Login() {
               </div>
             </div>
 
-            {/* Password Form Field */}
             <div className="space-y-1.5">
               <div className="flex justify-between items-center">
-                <label className="text-xs font-semibold text-slate-700 tracking-wide uppercase">Password</label>
+                <label className="text-xs font-semibold text-slate-700 tracking-wide uppercase">
+                  Password
+                </label>
                 {!isSignUp && (
-                  <a href="#" className="text-xs font-medium text-indigo-600 hover:underline">Forgot password?</a>
+                  <a href="#" className="text-xs font-medium text-indigo-600 hover:underline">
+                    Forgot password?
+                  </a>
                 )}
               </div>
               <div className="relative">
@@ -204,18 +203,16 @@ function Login() {
             </div>
           </div>
 
-          {/* Verification Status Feedback Alert */}
           {error && (
             <div className={`p-3.5 rounded-xl text-xs font-medium border text-center transition-all ${
-              error.includes('confirm') 
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-700' 
+              error.includes('confirm')
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
                 : 'bg-rose-50 border-rose-100 text-rose-600'
             }`}>
               {error}
             </div>
           )}
 
-          {/* Form Processing Triggers */}
           <div className="space-y-4">
             <button
               onClick={handleEmailAuth}
@@ -237,14 +234,12 @@ function Login() {
               )}
             </button>
 
-            {/* Divider */}
             <div className="relative flex py-1 items-center text-xs font-semibold text-slate-400 uppercase tracking-wider">
               <div className="flex-grow border-t border-slate-100"></div>
               <span className="flex-shrink mx-4">Or</span>
               <div className="flex-grow border-t border-slate-100"></div>
             </div>
 
-            {/* Exclusive Google Authentication */}
             <button
               onClick={handleGoogleLogin}
               className="w-full py-3 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl flex items-center justify-center gap-2 text-sm font-medium transition duration-150 shadow-sm active:scale-[0.98]"
@@ -259,13 +254,12 @@ function Login() {
             </button>
           </div>
 
-          {/* Toggle Form Layout State Action */}
           <p className="text-center text-sm text-slate-500 pt-2">
             {isSignUp ? 'Already have an account?' : "Don't have an account?"}
             <button
               onClick={() => {
-                setIsSignUp(!isSignUp);
-                setError('');
+                setIsSignUp(!isSignUp)
+                setError('')
               }}
               className="text-indigo-600 font-semibold ml-1.5 hover:underline focus:outline-none"
             >
@@ -279,4 +273,4 @@ function Login() {
   )
 }
 
-export default Login;
+export default Login
