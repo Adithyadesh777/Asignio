@@ -20,6 +20,10 @@ function NewAssignmentForm({ user, onAssignmentAdded, onClose }) {
     }
   }
 
+  const generateInviteCode = () => {
+    return Math.random().toString(36).substring(2, 8).toUpperCase()
+  }
+
   const uploadFile = async () => {
     if (!file) return null
 
@@ -63,7 +67,8 @@ function NewAssignmentForm({ user, onAssignmentAdded, onClose }) {
         type,
         status: 'pending',
         user_id: user.id,
-        file_url: fileUrl
+        file_url: fileUrl,
+        invite_code: type === 'group' ? generateInviteCode() : null
       }])
       .select()
 

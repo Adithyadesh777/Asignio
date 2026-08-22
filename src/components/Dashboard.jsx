@@ -148,7 +148,9 @@ function Dashboard({ user }) {
         ) : assignments.length === 0 ? (
           <div className="bg-white rounded-xl shadow-sm p-12 text-center">
             <p className="text-gray-400 text-lg mb-2">No assignments yet</p>
-            <p className="text-gray-400 text-sm">Click "+ New Assignment" to get started</p>
+            <p className="text-gray-400 text-sm">
+              Click "+ New Assignment" to get started
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -171,6 +173,31 @@ function Dashboard({ user }) {
                 <p className="text-sm text-gray-500">Due: {assignment.due_date}</p>
                 <p className="text-xs text-indigo-400 mt-1">{assignment.type}</p>
 
+                {/* Invite link for group assignments */}
+                {assignment.type === 'group' && assignment.invite_code && (
+                  <div className="mt-3 bg-indigo-50 rounded-lg p-3">
+                    <p className="text-xs font-medium text-indigo-600 mb-1">
+                      Invite Link
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs text-gray-500 font-mono flex-1 truncate">
+                        {window.location.origin}/join/{assignment.invite_code}
+                      </p>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(
+                            `${window.location.origin}/join/${assignment.invite_code}`
+                          )
+                          alert('Link copied!')
+                        }}
+                        className="text-xs bg-indigo-600 text-white px-2 py-1 rounded font-medium hover:bg-indigo-700 transition flex-shrink-0"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Generate AI Plan button */}
                 {assignment.file_url && (
                   <button
@@ -178,14 +205,18 @@ function Dashboard({ user }) {
                     disabled={generatingPlan === assignment.id}
                     className="mt-3 w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-xs font-medium py-2 rounded-lg transition"
                   >
-                    {generatingPlan === assignment.id ? 'Generating plan...' : '✨ Generate AI Plan'}
+                    {generatingPlan === assignment.id
+                      ? 'Generating plan...'
+                      : '✨ Generate AI Plan'}
                   </button>
                 )}
 
                 {/* AI Plan display */}
                 {assignment.ai_plan && (
                   <div className="mt-4 bg-gray-50 rounded-lg p-4">
-                    <p className="text-xs font-semibold text-indigo-600 mb-2">AI Study Plan</p>
+                    <p className="text-xs font-semibold text-indigo-600 mb-2">
+                      AI Study Plan
+                    </p>
                     <p className="text-xs text-gray-600 whitespace-pre-wrap leading-relaxed">
                       {assignment.ai_plan}
                     </p>
@@ -202,7 +233,9 @@ function Dashboard({ user }) {
                         : 'text-green-500 hover:text-green-600'
                     }`}
                   >
-                    {assignment.status === 'done' ? 'Mark as Pending' : 'Mark as Done'}
+                    {assignment.status === 'done'
+                      ? 'Mark as Pending'
+                      : 'Mark as Done'}
                   </button>
                   <div className="flex gap-3">
                     <button
