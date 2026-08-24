@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import NewAssignmentForm from './NewAssignmentForm'
 import EditAssignmentForm from './EditAssignmentForm'
+import ManageGroup from './ManageGroup'
 import { generateAssignmentPlan } from '../lib/gemini'
 import { extractTextFromPDF } from '../lib/pdfExtractor'
 
@@ -11,6 +12,7 @@ function Dashboard({ user }) {
   const [showForm, setShowForm] = useState(false)
   const [generatingPlan, setGeneratingPlan] = useState(null)
   const [editingAssignment, setEditingAssignment] = useState(null)
+  const [managingGroup, setManagingGroup] = useState(null)
 
   useEffect(() => {
     fetchAssignments()
@@ -237,7 +239,16 @@ function Dashboard({ user }) {
                       ? 'Mark as Pending'
                       : 'Mark as Done'}
                   </button>
+
                   <div className="flex gap-3">
+                    {assignment.type === 'group' && (
+                      <button
+                        onClick={() => setManagingGroup(assignment)}
+                        className="text-xs text-purple-400 hover:text-purple-600 font-medium transition"
+                      >
+                        Manage Group
+                      </button>
+                    )}
                     <button
                       onClick={() => setEditingAssignment(assignment)}
                       className="text-xs text-indigo-400 hover:text-indigo-600 font-medium transition"
@@ -276,6 +287,14 @@ function Dashboard({ user }) {
           assignment={editingAssignment}
           onAssignmentUpdated={handleAssignmentUpdated}
           onClose={() => setEditingAssignment(null)}
+        />
+      )}
+
+      {/* Manage Group modal */}
+      {managingGroup && (
+        <ManageGroup
+          assignment={managingGroup}
+          onClose={() => setManagingGroup(null)}
         />
       )}
 
