@@ -1,39 +1,43 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
-function Login({ redirectTo = '/' }) {
+function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isSignUp, setIsSignUp] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const navigate = useNavigate()
 
   const handleEmailAuth = async () => {
     setLoading(true)
     setError('')
 
     if (isSignUp) {
-      const { error } = await supabase.auth.signUp({ email, password })
+      localStorage.setItem('redirectAfterLogin', window.location.pathname)
+
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}${window.location.pathname}`
+        }
+      })
       if (error) setError(error.message)
       else setError('Check your email to confirm your account!')
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) {
-        setError(error.message)
-      } else {
-        navigate(redirectTo)
-      }
+      if (error) setError(error.message)
     }
     setLoading(false)
   }
 
   const handleGoogleLogin = async () => {
+    localStorage.setItem('redirectAfterLogin', window.location.pathname)
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}${redirectTo}`
+        redirectTo: window.location.origin
       }
     })
     if (error) setError(error.message)
@@ -41,8 +45,7 @@ function Login({ redirectTo = '/' }) {
 
   return (
     <div className="min-h-screen w-full bg-slate-50 flex flex-col md:flex-row antialiased selection:bg-indigo-500 selection:text-white">
-      
-      {/* Dynamic Keyframe Animations */}
+
       <style>{`
         @keyframes floatNetwork {
           0%, 100% { transform: translateY(0px) rotate(0deg); }
@@ -70,7 +73,7 @@ function Login({ redirectTo = '/' }) {
 
       {/* LEFT SIDE */}
       <div className="hidden md:flex md:w-1/2 lg:w-7/12 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 p-16 flex-col justify-between relative overflow-hidden border-r border-slate-800/40">
-        
+
         <div className="absolute top-1/3 left-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none"></div>
         <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-violet-500/10 rounded-full blur-[100px] pointer-events-none"></div>
 
@@ -142,7 +145,7 @@ function Login({ redirectTo = '/' }) {
       {/* RIGHT SIDE */}
       <div className="w-full md:w-1/2 lg:w-5/12 bg-white flex items-center justify-center p-8 sm:p-16 relative">
         <div className="w-full max-w-md space-y-8">
-          
+
           <div className="text-center md:text-left space-y-2">
             <h2 className="text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
               {isSignUp ? 'Create account' : 'Login'}

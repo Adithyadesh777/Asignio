@@ -23,22 +23,24 @@ function JoinGroup({ user }) {
       .from('assignments')
       .select('*')
       .eq('invite_code', inviteCode)
-      .single()
+      .maybeSingle()
 
     if (error || !data) {
       setError('Invalid or expired invite link')
-    } else {
-      setAssignment(data)
-
-      const { data: existingMember } = await supabase
-        .from('group_members')
-        .select('*')
-        .eq('assignment_id', data.id)
-        .eq('email', user.email)
-        .maybeSingle()
-
-      if (existingMember) setJoined(true)
+      setLoading(false)
+      return
     }
+
+    setAssignment(data)
+
+    const { data: existingMember } = await supabase
+      .from('group_members')
+      .select('*')
+      .eq('assignment_id', data.id)
+      .eq('email', user.email)
+      .maybeSingle()
+
+    if (existingMember) setJoined(true)
 
     setLoading(false)
   }
@@ -58,7 +60,7 @@ function JoinGroup({ user }) {
       }])
 
     if (error) {
-      setError('Failed to join group. Please try again.')
+      setError('Failed to join. Please try again.')
     } else {
       setJoined(true)
     }
@@ -74,7 +76,7 @@ function JoinGroup({ user }) {
     )
   }
 
-  if (error && !assignment) {
+  if (error) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center px-4">
         <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-md text-center">

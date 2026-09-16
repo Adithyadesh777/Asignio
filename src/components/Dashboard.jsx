@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import NewAssignmentForm from './NewAssignmentForm'
 import EditAssignmentForm from './EditAssignmentForm'
 import ManageGroup from './ManageGroup'
+import MemberTaskView from './MemberTaskView'
 import { generateAssignmentPlan } from '../lib/gemini'
 import { extractTextFromPDF } from '../lib/pdfExtractor'
 
@@ -13,6 +14,7 @@ function Dashboard({ user }) {
   const [generatingPlan, setGeneratingPlan] = useState(null)
   const [editingAssignment, setEditingAssignment] = useState(null)
   const [managingGroup, setManagingGroup] = useState(null)
+  const [expandedPlans, setExpandedPlans] = useState(new Set())
 
   useEffect(() => {
     fetchAssignments()
@@ -20,14 +22,45 @@ function Dashboard({ user }) {
 
   const fetchAssignments = async () => {
     setLoading(true)
-    const { data, error } = await supabase
+
+    const { data: ownedData, error: ownedError } = await supabase
       .from('assignments')
       .select('*')
       .eq('user_id', user.id)
       .order('due_date', { ascending: true })
 
-    if (error) console.log(error)
-    else setAssignments(data)
+    const { data: memberData, error: memberError } = await supabase
+      .from('group_members')
+      .select('assignment_id')
+      .eq('email', user.email)
+
+    if (ownedError) console.log(ownedError)
+    if (memberError) console.log(memberError)
+
+    let joinedAssignments = []
+
+    if (memberData && memberData.length > 0) {
+      const assignmentIds = memberData.map((m) => m.assignment_id)
+
+      const { data: groupData } = await supabase
+        .from('assignments')
+        .select('*')
+        .in('id', assignmentIds)
+        .order('due_date', { ascending: true })
+
+      if (groupData) joinedAssignments = groupData
+    }
+
+    const owned = ownedData || []
+    const merged = [
+      ...owned,
+      ...joinedAssignments.filter(
+        (ja) => !owned.find((oa) => oa.id === ja.id)
+      )
+    ]
+
+    merged.sort((a, b) => new Date(a.due_date) - new Date(b.due_date))
+    setAssignments(merged)
     setLoading(false)
   }
 
@@ -101,6 +134,8 @@ function Dashboard({ user }) {
         a.id === assignment.id ? { ...a, ai_plan: plan } : a
       ))
 
+      setExpandedPlans((prev) => new Set(prev).add(assignment.id))
+
     } catch (error) {
       console.log(error)
       alert('Failed to generate plan. Please try again.')
@@ -113,6 +148,18 @@ function Dashboard({ user }) {
     setAssignments(assignments.map((a) =>
       a.id === updatedAssignment.id ? updatedAssignment : a
     ))
+  }
+
+  const togglePlan = (id) => {
+    setExpandedPlans((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
   }
 
   return (
@@ -175,8 +222,10 @@ function Dashboard({ user }) {
                 <p className="text-sm text-gray-500">Due: {assignment.due_date}</p>
                 <p className="text-xs text-indigo-400 mt-1">{assignment.type}</p>
 
-                {/* Invite link for group assignments */}
-                {assignment.type === 'group' && assignment.invite_code && (
+                {/* Invite link — owner only */}
+                {assignment.type === 'group' &&
+                  assignment.invite_code &&
+                  assignment.user_id === user.id && (
                   <div className="mt-3 bg-indigo-50 rounded-lg p-3">
                     <p className="text-xs font-medium text-indigo-600 mb-1">
                       Invite Link
@@ -200,8 +249,18 @@ function Dashboard({ user }) {
                   </div>
                 )}
 
-                {/* Generate AI Plan button */}
-                {assignment.file_url && (
+                {/* Member task view — joined members only */}
+                {assignment.type === 'group' &&
+                  assignment.user_id !== user.id && (
+                  <MemberTaskView
+                    assignmentId={assignment.id}
+                    userEmail={user.email}
+                  />
+                )}
+
+                {/* Generate AI Plan — owner only */}
+                {assignment.file_url &&
+                  assignment.user_id === user.id && (
                   <button
                     onClick={() => handleGeneratePlan(assignment)}
                     disabled={generatingPlan === assignment.id}
@@ -209,13 +268,27 @@ function Dashboard({ user }) {
                   >
                     {generatingPlan === assignment.id
                       ? 'Generating plan...'
-                      : '✨ Generate AI Plan'}
+                      : assignment.ai_plan
+                        ? '✨ Regenerate AI Plan'
+                        : '✨ Generate AI Plan'}
                   </button>
                 )}
 
-                {/* AI Plan display */}
+                {/* View AI Plan toggle */}
                 {assignment.ai_plan && (
-                  <div className="mt-4 bg-gray-50 rounded-lg p-4">
+                  <button
+                    onClick={() => togglePlan(assignment.id)}
+                    className="mt-2 w-full border border-indigo-200 text-indigo-600 text-xs font-medium py-2 rounded-lg hover:bg-indigo-50 transition flex items-center justify-center gap-1"
+                  >
+                    {expandedPlans.has(assignment.id)
+                      ? '▲ Hide AI Plan'
+                      : '▼ View AI Plan'}
+                  </button>
+                )}
+
+                {/* AI Plan content */}
+                {assignment.ai_plan && expandedPlans.has(assignment.id) && (
+                  <div className="mt-2 bg-gray-50 rounded-lg p-4 border border-gray-100">
                     <p className="text-xs font-semibold text-indigo-600 mb-2">
                       AI Study Plan
                     </p>
@@ -241,7 +314,8 @@ function Dashboard({ user }) {
                   </button>
 
                   <div className="flex gap-3">
-                    {assignment.type === 'group' && (
+                    {assignment.type === 'group' &&
+                      assignment.user_id === user.id && (
                       <button
                         onClick={() => setManagingGroup(assignment)}
                         className="text-xs text-purple-400 hover:text-purple-600 font-medium transition"
@@ -249,18 +323,22 @@ function Dashboard({ user }) {
                         Manage Group
                       </button>
                     )}
-                    <button
-                      onClick={() => setEditingAssignment(assignment)}
-                      className="text-xs text-indigo-400 hover:text-indigo-600 font-medium transition"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDeleteAssignment(assignment.id)}
-                      className="text-xs text-red-400 hover:text-red-600 font-medium transition"
-                    >
-                      Delete
-                    </button>
+                    {assignment.user_id === user.id && (
+                      <>
+                        <button
+                          onClick={() => setEditingAssignment(assignment)}
+                          className="text-xs text-indigo-400 hover:text-indigo-600 font-medium transition"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteAssignment(assignment.id)}
+                          className="text-xs text-red-400 hover:text-red-600 font-medium transition"
+                        >
+                          Delete
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
 

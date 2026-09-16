@@ -1,9 +1,25 @@
 import { useState, useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import Login from './components/Login'
 import Dashboard from './components/Dashboard'
 import JoinGroup from './components/JoinGroup'
+
+function AuthRedirectHandler({ user }) {
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (user) {
+      const savedPath = localStorage.getItem('redirectAfterLogin')
+      if (savedPath && savedPath !== '/') {
+        localStorage.removeItem('redirectAfterLogin')
+        navigate(savedPath)
+      }
+    }
+  }, [user])
+
+  return null
+}
 
 function App() {
   const [user, setUser] = useState(null)
@@ -32,6 +48,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <AuthRedirectHandler user={user} />
       <Routes>
         <Route
           path="/"
