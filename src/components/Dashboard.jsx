@@ -6,6 +6,7 @@ import ManageGroup from './ManageGroup'
 import MemberTaskView from './MemberTaskView'
 import { generateAssignmentPlan } from '../lib/gemini'
 import { extractTextFromPDF } from '../lib/pdfExtractor'
+import { initGoogleCalendar, createCalendarEvent } from '../lib/calendar'
 
 function Dashboard({ user }) {
   const [assignments, setAssignments] = useState([])
@@ -15,9 +16,11 @@ function Dashboard({ user }) {
   const [editingAssignment, setEditingAssignment] = useState(null)
   const [managingGroup, setManagingGroup] = useState(null)
   const [expandedPlans, setExpandedPlans] = useState(new Set())
+  const [syncingCalendar, setSyncingCalendar] = useState(null)
 
   useEffect(() => {
     fetchAssignments()
+    initGoogleCalendar()
   }, [])
 
   const fetchAssignments = async () => {
@@ -148,6 +151,34 @@ function Dashboard({ user }) {
     setAssignments(assignments.map((a) =>
       a.id === updatedAssignment.id ? updatedAssignment : a
     ))
+  }
+
+  const handleSyncToCalendar = async (assignment) => {
+    setSyncingCalendar(assignment.id)
+
+    try {
+      const eventId = await createCalendarEvent(assignment)
+
+      const { error } = await supabase
+        .from('assignments')
+        .update({ calendar_event_id: eventId })
+        .eq('id', assignment.id)
+
+      if (error) throw error
+
+      setAssignments(assignments.map((a) =>
+        a.id === assignment.id
+          ? { ...a, calendar_event_id: eventId }
+          : a
+      ))
+
+      alert('✅ Added to Google Calendar!')
+    } catch (error) {
+      console.log(error)
+      alert('Failed to sync. Please try again.')
+    }
+
+    setSyncingCalendar(null)
   }
 
   const togglePlan = (id) => {
@@ -296,6 +327,25 @@ function Dashboard({ user }) {
                       {assignment.ai_plan}
                     </p>
                   </div>
+                )}
+
+                {/* Sync to Calendar — owner only */}
+                {assignment.user_id === user.id && (
+                  <button
+                    onClick={() => handleSyncToCalendar(assignment)}
+                    disabled={syncingCalendar === assignment.id}
+                    className={`mt-2 w-full text-xs font-medium py-2 rounded-lg transition flex items-center justify-center gap-1 ${
+                      assignment.calendar_event_id
+                        ? 'bg-green-50 text-green-600 border border-green-200'
+                        : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    {syncingCalendar === assignment.id
+                      ? 'Syncing...'
+                      : assignment.calendar_event_id
+                        ? '✅ Synced to Calendar'
+                        : '📅 Sync to Calendar'}
+                  </button>
                 )}
 
                 {/* Action buttons */}
