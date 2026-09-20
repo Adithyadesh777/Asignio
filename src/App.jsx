@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import Login from './components/Login'
-import Dashboard from './components/Dashboard'
+import Layout from './components/Layout'
+import DashboardPage from './components/DashboardPage'
+import AssignmentsPage from './components/AssignmentsPage'
 import JoinGroup from './components/JoinGroup'
 
 function AuthRedirectHandler({ user }) {
@@ -40,8 +42,13 @@ function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <p className="text-indigo-600 font-medium text-lg">Loading...</p>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#f8f7f4' }}>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: '#414073' }}>
+            <span style={{ color: '#E7EBC5', fontSize: 18, fontWeight: 700 }}>A</span>
+          </div>
+          <p className="text-sm font-medium" style={{ color: '#414073' }}>Loading Asignio...</p>
+        </div>
       </div>
     )
   }
@@ -52,7 +59,43 @@ function App() {
       <Routes>
         <Route
           path="/"
-          element={user ? <Dashboard user={user} /> : <Login />}
+          element={
+            user
+              ? <Layout user={user}><DashboardPage user={user} /></Layout>
+              : <Login />
+          }
+        />
+        <Route
+          path="/assignments"
+          element={
+            user
+              ? <Layout user={user}><AssignmentsPage user={user} /></Layout>
+              : <Login />
+          }
+        />
+        <Route
+          path="/groups"
+          element={
+            user
+              ? <Layout user={user}><AssignmentsPage user={user} /></Layout>
+              : <Login />
+          }
+        />
+        <Route
+          path="/calendar"
+          element={
+            user
+              ? <Layout user={user}><AssignmentsPage user={user} /></Layout>
+              : <Login />
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            user
+              ? <Layout user={user}><AssignmentsPage user={user} /></Layout>
+              : <Login />
+          }
         />
         <Route
           path="/join/:inviteCode"
