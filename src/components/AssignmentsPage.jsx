@@ -8,6 +8,37 @@ import { generateAssignmentPlan } from '../lib/gemini'
 import { extractTextFromPDF } from '../lib/pdfExtractor'
 import { initGoogleCalendar, createCalendarEvent } from '../lib/calendar'
 
+function StatusBadge({ status }) {
+  const styles = {
+    pending: { background: '#fef3c7', color: '#d97706' },
+    done: { background: '#dcfce7', color: '#16a34a' },
+    overdue: { background: '#fee2e2', color: '#dc2626' }
+  }
+  const s = styles[status] || styles.pending
+  return (
+    <span
+      className="text-xs font-medium px-2.5 py-1 rounded-full capitalize"
+      style={s}
+    >
+      {status}
+    </span>
+  )
+}
+
+function TypeBadge({ type }) {
+  return (
+    <span
+      className="text-xs font-medium px-2.5 py-1 rounded-full capitalize"
+      style={{
+        background: type === 'group' ? '#dbeafe' : '#f3f0ff',
+        color: type === 'group' ? '#41658A' : '#414073'
+      }}
+    >
+      {type === 'group' ? '👥 Group' : '👤 Individual'}
+    </span>
+  )
+}
+
 function AssignmentsPage({ user }) {
   const [assignments, setAssignments] = useState([])
   const [loading, setLoading] = useState(true)
@@ -17,6 +48,8 @@ function AssignmentsPage({ user }) {
   const [managingGroup, setManagingGroup] = useState(null)
   const [expandedPlans, setExpandedPlans] = useState(new Set())
   const [syncingCalendar, setSyncingCalendar] = useState(null)
+  const [filter, setFilter] = useState('all')
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     fetchAssignments()
@@ -41,16 +74,13 @@ function AssignmentsPage({ user }) {
     if (memberError) console.log(memberError)
 
     let joinedAssignments = []
-
     if (memberData && memberData.length > 0) {
       const assignmentIds = memberData.map((m) => m.assignment_id)
-
       const { data: groupData } = await supabase
         .from('assignments')
         .select('*')
         .in('id', assignmentIds)
         .order('due_date', { ascending: true })
-
       if (groupData) joinedAssignments = groupData
     }
 
@@ -61,18 +91,9 @@ function AssignmentsPage({ user }) {
         (ja) => !owned.find((oa) => oa.id === ja.id)
       )
     ]
-
     merged.sort((a, b) => new Date(a.due_date) - new Date(b.due_date))
     setAssignments(merged)
     setLoading(false)
-  }
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-  }
-
-  const handleAssignmentAdded = (newAssignment) => {
-    setAssignments([...assignments, newAssignment])
   }
 
   const handleDeleteAssignment = async (id) => {
@@ -80,29 +101,20 @@ function AssignmentsPage({ user }) {
       .from('assignments')
       .delete()
       .eq('id', id)
-
-    if (error) {
-      console.log(error)
-    } else {
-      setAssignments(assignments.filter((a) => a.id !== id))
-    }
+    if (error) console.log(error)
+    else setAssignments(assignments.filter((a) => a.id !== id))
   }
 
   const handleToggleStatus = async (id, currentStatus) => {
     const newStatus = currentStatus === 'pending' ? 'done' : 'pending'
-
     const { error } = await supabase
       .from('assignments')
       .update({ status: newStatus })
       .eq('id', id)
-
-    if (error) {
-      console.log(error)
-    } else {
-      setAssignments(assignments.map((a) =>
-        a.id === id ? { ...a, status: newStatus } : a
-      ))
-    }
+    if (error) console.log(error)
+    else setAssignments(assignments.map((a) =>
+      a.id === id ? { ...a, status: newStatus } : a
+    ))
   }
 
   const handleGeneratePlan = async (assignment) => {
@@ -110,40 +122,29 @@ function AssignmentsPage({ user }) {
       alert('Please attach a guideline PDF first')
       return
     }
-
     setGeneratingPlan(assignment.id)
-
     try {
       const { data, error } = await supabase.storage
         .from('guidelines')
         .download(assignment.file_url)
-
       if (error) throw error
-
       const blob = await data
       const file = new File([blob], 'guideline.pdf', { type: 'application/pdf' })
       const text = await extractTextFromPDF(file)
-
       const plan = await generateAssignmentPlan(text, assignment.title)
-
       const { error: updateError } = await supabase
         .from('assignments')
         .update({ ai_plan: plan })
         .eq('id', assignment.id)
-
       if (updateError) throw updateError
-
       setAssignments(assignments.map((a) =>
         a.id === assignment.id ? { ...a, ai_plan: plan } : a
       ))
-
       setExpandedPlans((prev) => new Set(prev).add(assignment.id))
-
     } catch (error) {
       console.log(error)
       alert('Failed to generate plan. Please try again.')
     }
-
     setGeneratingPlan(null)
   }
 
@@ -155,260 +156,373 @@ function AssignmentsPage({ user }) {
 
   const handleSyncToCalendar = async (assignment) => {
     setSyncingCalendar(assignment.id)
-
     try {
       const eventId = await createCalendarEvent(assignment)
-
       const { error } = await supabase
         .from('assignments')
         .update({ calendar_event_id: eventId })
         .eq('id', assignment.id)
-
       if (error) throw error
-
       setAssignments(assignments.map((a) =>
-        a.id === assignment.id
-          ? { ...a, calendar_event_id: eventId }
-          : a
+        a.id === assignment.id ? { ...a, calendar_event_id: eventId } : a
       ))
-
       alert('✅ Added to Google Calendar!')
     } catch (error) {
       console.log(error)
       alert('Failed to sync. Please try again.')
     }
-
     setSyncingCalendar(null)
   }
 
   const togglePlan = (id) => {
     setExpandedPlans((prev) => {
       const next = new Set(prev)
-      if (next.has(id)) {
-        next.delete(id)
-      } else {
-        next.add(id)
-      }
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
       return next
     })
   }
 
-  return (
-    <div className="min-h-screen bg-gray-100">
+  const getDaysLeft = (dueDate) => {
+    const diff = Math.ceil((new Date(dueDate) - new Date()) / (1000 * 60 * 60 * 24))
+    if (diff < 0) return 'Overdue'
+    if (diff === 0) return 'Due today'
+    if (diff === 1) return 'Due tomorrow'
+    return `${diff} days left`
+  }
 
-      {/* Header */}
-      <div className="bg-white shadow-sm px-6 py-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-indigo-700">Asignio</h1>
-        <div className="flex items-center gap-4">
-          <p className="text-sm text-gray-500 hidden sm:block">{user.email}</p>
-          <button
-            onClick={handleSignOut}
-            className="bg-red-500 hover:bg-red-600 text-white text-sm font-medium px-4 py-2 rounded-lg transition"
+  const getDaysColor = (dueDate) => {
+    const diff = Math.ceil((new Date(dueDate) - new Date()) / (1000 * 60 * 60 * 24))
+    if (diff < 0) return '#ef4444'
+    if (diff <= 2) return '#f97316'
+    if (diff <= 5) return '#eab308'
+    return '#70A37F'
+  }
+
+  const filteredAssignments = assignments
+    .filter(a => {
+      if (filter === 'pending') return a.status === 'pending'
+      if (filter === 'done') return a.status === 'done'
+      if (filter === 'group') return a.type === 'group'
+      if (filter === 'individual') return a.type === 'individual'
+      return true
+    })
+    .filter(a =>
+      a.title.toLowerCase().includes(search.toLowerCase())
+    )
+
+  return (
+    <div style={{ fontFamily: "'Inter', sans-serif" }}>
+
+      {/* Page header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-xl font-bold" style={{ color: '#414073' }}>
+            My Assignments
+          </h2>
+          <p className="text-sm mt-0.5" style={{ color: '#989788' }}>
+            {assignments.length} total · {assignments.filter(a => a.status === 'pending').length} pending
+          </p>
+        </div>
+        <button
+          onClick={() => setShowForm(true)}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
+          style={{ background: 'linear-gradient(135deg, #414073, #4C3957)', color: '#E7EBC5' }}
+        >
+          <span>+</span>
+          <span>New Assignment</span>
+        </button>
+      </div>
+
+      {/* Search and filter bar */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="relative flex-1">
+          <svg
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
+            style={{ color: '#989788' }}
+            fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"
           >
-            Sign Out
-          </button>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          <input
+            type="text"
+            placeholder="Search assignments..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm outline-none"
+            style={{
+              background: '#ffffff',
+              border: '1px solid #f0ede8',
+              color: '#414073'
+            }}
+          />
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          {['all', 'pending', 'done', 'group', 'individual'].map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className="px-3 py-2 rounded-xl text-xs font-medium capitalize transition-all"
+              style={{
+                background: filter === f ? '#414073' : '#ffffff',
+                color: filter === f ? '#E7EBC5' : '#989788',
+                border: `1px solid ${filter === f ? '#414073' : '#f0ede8'}`
+              }}
+            >
+              {f}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Main content */}
-      <div className="max-w-4xl mx-auto px-4 py-8">
-
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-gray-800">My Assignments</h2>
-          <button
-            onClick={() => setShowForm(true)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition"
-          >
-            + New Assignment
-          </button>
+      {/* Assignment list */}
+      {loading ? (
+        <div className="space-y-3">
+          {[1,2,3].map(i => (
+            <div
+              key={i}
+              className="rounded-2xl p-6 animate-pulse"
+              style={{ background: '#ffffff', height: 100 }}
+            />
+          ))}
         </div>
+      ) : filteredAssignments.length === 0 ? (
+        <div
+          className="rounded-2xl p-16 text-center"
+          style={{ background: '#ffffff', border: '1px solid #f0ede8' }}
+        >
+          <p className="text-4xl mb-3">📭</p>
+          <p className="font-semibold" style={{ color: '#414073' }}>
+            No assignments found
+          </p>
+          <p className="text-sm mt-1" style={{ color: '#989788' }}>
+            {search ? 'Try a different search term' : 'Click "+ New Assignment" to get started'}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filteredAssignments.map((assignment) => (
+            <div
+              key={assignment.id}
+              className="rounded-2xl p-6 transition-all"
+              style={{
+                background: '#ffffff',
+                border: '1px solid #f0ede8'
+              }}
+            >
+              {/* Top row */}
+              <div className="flex items-start justify-between gap-4 mb-3">
+                <div className="flex-1 min-w-0">
+                  <h3
+                    className="font-semibold text-base truncate"
+                    style={{ color: '#414073' }}
+                  >
+                    {assignment.title}
+                  </h3>
+                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                    <TypeBadge type={assignment.type} />
+                    <StatusBadge status={assignment.status} />
+                    <span
+                      className="text-xs font-medium"
+                      style={{ color: getDaysColor(assignment.due_date) }}
+                    >
+                      {getDaysLeft(assignment.due_date)}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-xs font-medium" style={{ color: '#989788' }}>Due date</p>
+                  <p className="text-sm font-semibold mt-0.5" style={{ color: '#414073' }}>
+                    {new Date(assignment.due_date).toLocaleDateString('en-US', {
+                      month: 'short', day: 'numeric', year: 'numeric'
+                    })}
+                  </p>
+                </div>
+              </div>
 
-        {loading ? (
-          <p className="text-center text-gray-500">Loading assignments...</p>
-        ) : assignments.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-sm p-12 text-center">
-            <p className="text-gray-400 text-lg mb-2">No assignments yet</p>
-            <p className="text-gray-400 text-sm">
-              Click "+ New Assignment" to get started
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {assignments.map((assignment) => (
-              <div key={assignment.id} className="bg-white rounded-xl shadow-sm p-6">
+              {/* Invite link for group owners */}
+              {assignment.type === 'group' &&
+                assignment.invite_code &&
+                assignment.user_id === user.id && (
+                <div
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl mb-3"
+                  style={{ background: '#f3f0ff' }}
+                >
+                  <svg width="14" height="14" fill="none" stroke="#414073" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                  </svg>
+                  <p className="text-xs font-mono flex-1 truncate" style={{ color: '#414073' }}>
+                    {window.location.origin}/join/{assignment.invite_code}
+                  </p>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(
+                        `${window.location.origin}/join/${assignment.invite_code}`
+                      )
+                      alert('Link copied!')
+                    }}
+                    className="text-xs font-medium px-2 py-1 rounded-lg"
+                    style={{ background: '#414073', color: '#E7EBC5' }}
+                  >
+                    Copy
+                  </button>
+                </div>
+              )}
 
-                {/* Title and status badge */}
-                <div className="flex items-start justify-between mb-2">
-                  <h3 className="font-semibold text-gray-800">{assignment.title}</h3>
-                  <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-                    assignment.status === 'done'
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-yellow-100 text-yellow-700'
-                  }`}>
-                    {assignment.status}
-                  </span>
+              {/* Member task view */}
+              {assignment.type === 'group' &&
+                assignment.user_id !== user.id && (
+                <MemberTaskView
+                  assignmentId={assignment.id}
+                  userEmail={user.email}
+                />
+              )}
+
+              {/* Action buttons row */}
+              <div className="flex items-center justify-between mt-4 pt-4" style={{ borderTop: '1px solid #f8f7f4' }}>
+                <div className="flex items-center gap-2 flex-wrap">
+
+                  {/* Generate AI Plan */}
+                  {assignment.file_url && assignment.user_id === user.id && (
+                    <button
+                      onClick={() => handleGeneratePlan(assignment)}
+                      disabled={generatingPlan === assignment.id}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                      style={{
+                        background: '#f3f0ff',
+                        color: '#414073'
+                      }}
+                    >
+                      <span>✨</span>
+                      <span>
+                        {generatingPlan === assignment.id
+                          ? 'Generating...'
+                          : assignment.ai_plan
+                            ? 'Regenerate Plan'
+                            : 'Generate AI Plan'}
+                      </span>
+                    </button>
+                  )}
+
+                  {/* View AI Plan */}
+                  {assignment.ai_plan && (
+                    <button
+                      onClick={() => togglePlan(assignment.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                      style={{
+                        background: expandedPlans.has(assignment.id) ? '#414073' : '#f8f7f4',
+                        color: expandedPlans.has(assignment.id) ? '#E7EBC5' : '#414073'
+                      }}
+                    >
+                      <span>{expandedPlans.has(assignment.id) ? '▲' : '▼'}</span>
+                      <span>{expandedPlans.has(assignment.id) ? 'Hide Plan' : 'View Plan'}</span>
+                    </button>
+                  )}
+
+                  {/* Calendar sync */}
+                  {assignment.user_id === user.id && (
+                    <button
+                      onClick={() => handleSyncToCalendar(assignment)}
+                      disabled={syncingCalendar === assignment.id}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                      style={{
+                        background: assignment.calendar_event_id ? '#dcfce7' : '#f8f7f4',
+                        color: assignment.calendar_event_id ? '#16a34a' : '#414073'
+                      }}
+                    >
+                      <span>{assignment.calendar_event_id ? '✅' : '📅'}</span>
+                      <span>
+                        {syncingCalendar === assignment.id
+                          ? 'Syncing...'
+                          : assignment.calendar_event_id
+                            ? 'Synced'
+                            : 'Sync Calendar'}
+                      </span>
+                    </button>
+                  )}
+
                 </div>
 
-                {/* Due date and type */}
-                <p className="text-sm text-gray-500">Due: {assignment.due_date}</p>
-                <p className="text-xs text-indigo-400 mt-1">{assignment.type}</p>
-
-                {/* Invite link — owner only */}
-                {assignment.type === 'group' &&
-                  assignment.invite_code &&
-                  assignment.user_id === user.id && (
-                  <div className="mt-3 bg-indigo-50 rounded-lg p-3">
-                    <p className="text-xs font-medium text-indigo-600 mb-1">
-                      Invite Link
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <p className="text-xs text-gray-500 font-mono flex-1 truncate">
-                        {window.location.origin}/join/{assignment.invite_code}
-                      </p>
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(
-                            `${window.location.origin}/join/${assignment.invite_code}`
-                          )
-                          alert('Link copied!')
-                        }}
-                        className="text-xs bg-indigo-600 text-white px-2 py-1 rounded font-medium hover:bg-indigo-700 transition flex-shrink-0"
-                      >
-                        Copy
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Member task view — joined members only */}
-                {assignment.type === 'group' &&
-                  assignment.user_id !== user.id && (
-                  <MemberTaskView
-                    assignmentId={assignment.id}
-                    userEmail={user.email}
-                  />
-                )}
-
-                {/* Generate AI Plan — owner only */}
-                {assignment.file_url &&
-                  assignment.user_id === user.id && (
-                  <button
-                    onClick={() => handleGeneratePlan(assignment)}
-                    disabled={generatingPlan === assignment.id}
-                    className="mt-3 w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-xs font-medium py-2 rounded-lg transition"
-                  >
-                    {generatingPlan === assignment.id
-                      ? 'Generating plan...'
-                      : assignment.ai_plan
-                        ? '✨ Regenerate AI Plan'
-                        : '✨ Generate AI Plan'}
-                  </button>
-                )}
-
-                {/* View AI Plan toggle */}
-                {assignment.ai_plan && (
-                  <button
-                    onClick={() => togglePlan(assignment.id)}
-                    className="mt-2 w-full border border-indigo-200 text-indigo-600 text-xs font-medium py-2 rounded-lg hover:bg-indigo-50 transition flex items-center justify-center gap-1"
-                  >
-                    {expandedPlans.has(assignment.id)
-                      ? '▲ Hide AI Plan'
-                      : '▼ View AI Plan'}
-                  </button>
-                )}
-
-                {/* AI Plan content */}
-                {assignment.ai_plan && expandedPlans.has(assignment.id) && (
-                  <div className="mt-2 bg-gray-50 rounded-lg p-4 border border-gray-100">
-                    <p className="text-xs font-semibold text-indigo-600 mb-2">
-                      AI Study Plan
-                    </p>
-                    <p className="text-xs text-gray-600 whitespace-pre-wrap leading-relaxed">
-                      {assignment.ai_plan}
-                    </p>
-                  </div>
-                )}
-
-                {/* Sync to Calendar — owner only */}
-                {assignment.user_id === user.id && (
-                  <button
-                    onClick={() => handleSyncToCalendar(assignment)}
-                    disabled={syncingCalendar === assignment.id}
-                    className={`mt-2 w-full text-xs font-medium py-2 rounded-lg transition flex items-center justify-center gap-1 ${
-                      assignment.calendar_event_id
-                        ? 'bg-green-50 text-green-600 border border-green-200'
-                        : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-                    }`}
-                  >
-                    {syncingCalendar === assignment.id
-                      ? 'Syncing...'
-                      : assignment.calendar_event_id
-                        ? '✅ Synced to Calendar'
-                        : '📅 Sync to Calendar'}
-                  </button>
-                )}
-
-                {/* Action buttons */}
-                <div className="flex justify-between items-center mt-4">
+                <div className="flex items-center gap-2">
+                  {/* Toggle status */}
                   <button
                     onClick={() => handleToggleStatus(assignment.id, assignment.status)}
-                    className={`text-xs font-medium transition ${
-                      assignment.status === 'done'
-                        ? 'text-yellow-500 hover:text-yellow-600'
-                        : 'text-green-500 hover:text-green-600'
-                    }`}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                    style={{
+                      background: assignment.status === 'done' ? '#fef3c7' : '#dcfce7',
+                      color: assignment.status === 'done' ? '#d97706' : '#16a34a'
+                    }}
                   >
-                    {assignment.status === 'done'
-                      ? 'Mark as Pending'
-                      : 'Mark as Done'}
+                    {assignment.status === 'done' ? '↩ Reopen' : '✓ Mark Done'}
                   </button>
 
-                  <div className="flex gap-3">
-                    {assignment.type === 'group' &&
-                      assignment.user_id === user.id && (
+                  {/* Manage Group */}
+                  {assignment.type === 'group' && assignment.user_id === user.id && (
+                    <button
+                      onClick={() => setManagingGroup(assignment)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                      style={{ background: '#dbeafe', color: '#41658A' }}
+                    >
+                      👥 Manage
+                    </button>
+                  )}
+
+                  {assignment.user_id === user.id && (
+                    <>
                       <button
-                        onClick={() => setManagingGroup(assignment)}
-                        className="text-xs text-purple-400 hover:text-purple-600 font-medium transition"
+                        onClick={() => setEditingAssignment(assignment)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                        style={{ background: '#f3f0ff', color: '#414073' }}
                       >
-                        Manage Group
+                        ✏️ Edit
                       </button>
-                    )}
-                    {assignment.user_id === user.id && (
-                      <>
-                        <button
-                          onClick={() => setEditingAssignment(assignment)}
-                          className="text-xs text-indigo-400 hover:text-indigo-600 font-medium transition"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDeleteAssignment(assignment.id)}
-                          className="text-xs text-red-400 hover:text-red-600 font-medium transition"
-                        >
-                          Delete
-                        </button>
-                      </>
-                    )}
-                  </div>
+                      <button
+                        onClick={() => handleDeleteAssignment(assignment.id)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                        style={{ background: '#fee2e2', color: '#dc2626' }}
+                      >
+                        🗑️ Delete
+                      </button>
+                    </>
+                  )}
                 </div>
-
               </div>
-            ))}
-          </div>
-        )}
 
-      </div>
+              {/* AI Plan expanded */}
+              {assignment.ai_plan && expandedPlans.has(assignment.id) && (
+                <div
+                  className="mt-4 p-4 rounded-xl"
+                  style={{ background: '#f8f7f4', border: '1px solid #f0ede8' }}
+                >
+                  <p
+                    className="text-xs font-semibold mb-2 flex items-center gap-1.5"
+                    style={{ color: '#414073' }}
+                  >
+                    ✨ AI Study Plan
+                  </p>
+                  <p
+                    className="text-xs whitespace-pre-wrap leading-relaxed"
+                    style={{ color: '#6F5060' }}
+                  >
+                    {assignment.ai_plan}
+                  </p>
+                </div>
+              )}
 
-      {/* New Assignment Form modal */}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Modals */}
       {showForm && (
         <NewAssignmentForm
           user={user}
-          onAssignmentAdded={handleAssignmentAdded}
+          onAssignmentAdded={(a) => setAssignments([...assignments, a])}
           onClose={() => setShowForm(false)}
         />
       )}
 
-      {/* Edit Assignment Form modal */}
       {editingAssignment && (
         <EditAssignmentForm
           user={user}
@@ -418,7 +532,6 @@ function AssignmentsPage({ user }) {
         />
       )}
 
-      {/* Manage Group modal */}
       {managingGroup && (
         <ManageGroup
           assignment={managingGroup}
