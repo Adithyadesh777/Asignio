@@ -6,6 +6,9 @@ import Layout from './components/Layout'
 import DashboardPage from './components/DashboardPage'
 import AssignmentsPage from './components/AssignmentsPage'
 import JoinGroup from './components/JoinGroup'
+import GroupsPage from './components/GroupsPage'
+import CalendarPage from './components/CalendarPage'
+import ProfilePage from './components/ProfilePage'
 
 function AuthRedirectHandler({ user }) {
   const navigate = useNavigate()
@@ -77,7 +80,7 @@ function App() {
           path="/groups"
           element={
             user
-              ? <Layout user={user}><AssignmentsPage user={user} /></Layout>
+              ? <Layout user={user}><GroupsPage user={user} /></Layout>
               : <Login />
           }
         />
@@ -85,7 +88,7 @@ function App() {
           path="/calendar"
           element={
             user
-              ? <Layout user={user}><AssignmentsPage user={user} /></Layout>
+              ? <Layout user={user}><CalendarPage user={user} /></Layout>
               : <Login />
           }
         />
@@ -93,7 +96,7 @@ function App() {
           path="/profile"
           element={
             user
-              ? <Layout user={user}><AssignmentsPage user={user} /></Layout>
+              ? <Layout user={user}><ProfilePage user={user} /></Layout>
               : <Login />
           }
         />
