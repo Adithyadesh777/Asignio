@@ -68,21 +68,26 @@ function Layout({ user, children }) {
     await supabase.auth.signOut()
   }
 
+  const currentPage = NAV_ITEMS.find(n => n.path === location.pathname)?.label || 'Dashboard'
+
   return (
-    <div style={{ fontFamily: "'Inter', sans-serif" }} className="flex h-screen bg-gray-50 overflow-hidden">
+    <div
+      className="flex h-screen overflow-hidden"
+      style={{ fontFamily: "'Inter', sans-serif", background: '#f8f7f4' }}
+    >
 
       <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
 
-      {/* ── SIDEBAR ── */}
+      {/* ── SIDEBAR — hidden on mobile, visible on md+ ── */}
       <aside
-        className="flex flex-col transition-all duration-300 ease-in-out flex-shrink-0"
+        className="hidden md:flex flex-col flex-shrink-0 transition-all duration-300 ease-in-out"
         style={{
           width: collapsed ? '72px' : '240px',
           background: 'linear-gradient(180deg, #414073 0%, #4C3957 100%)',
           borderRight: '1px solid rgba(255,255,255,0.06)'
         }}
       >
-        {/* Logo area */}
+        {/* Logo */}
         <div className="flex items-center px-4 py-5 border-b border-white border-opacity-10">
           <div
             className="flex items-center justify-center rounded-xl flex-shrink-0"
@@ -124,13 +129,9 @@ function Layout({ user, children }) {
                 style={{
                   padding: collapsed ? '10px 12px' : '10px 14px',
                   justifyContent: collapsed ? 'center' : 'flex-start',
-                  background: isActive
-                    ? 'rgba(65, 101, 138, 0.5)'
-                    : 'transparent',
+                  background: isActive ? 'rgba(65,101,138,0.5)' : 'transparent',
                   color: isActive ? '#E7EBC5' : '#D4C5C0',
-                  border: isActive
-                    ? '1px solid rgba(65,101,138,0.4)'
-                    : '1px solid transparent'
+                  border: isActive ? '1px solid rgba(65,101,138,0.4)' : '1px solid transparent'
                 }}
                 onMouseEnter={(e) => {
                   if (!isActive) {
@@ -148,16 +149,14 @@ function Layout({ user, children }) {
               >
                 <span className="flex-shrink-0">{item.icon}</span>
                 {!collapsed && (
-                  <span className="ml-3 text-sm font-medium truncate">
-                    {item.label}
-                  </span>
+                  <span className="ml-3 text-sm font-medium truncate">{item.label}</span>
                 )}
               </button>
             )
           })}
         </nav>
 
-        {/* User info + sign out */}
+        {/* User + sign out */}
         <div className="px-3 py-4 border-t border-white border-opacity-10">
           {!collapsed && (
             <div className="flex items-center gap-3 px-2 mb-3">
@@ -207,44 +206,102 @@ function Layout({ user, children }) {
       {/* ── MAIN CONTENT ── */}
       <main className="flex-1 flex flex-col overflow-hidden">
 
-        {/* Top header bar */}
+        {/* Top header */}
         <header
-          className="flex items-center justify-between px-8 py-4 flex-shrink-0"
-          style={{
-            background: '#ffffff',
-            borderBottom: '1px solid #f0ede8'
-          }}
+          className="flex items-center justify-between px-4 md:px-8 py-4 flex-shrink-0"
+          style={{ background: '#ffffff', borderBottom: '1px solid #f0ede8' }}
         >
-          <div>
+          {/* Mobile logo */}
+          <div className="flex items-center gap-3 md:hidden">
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={{ background: '#414073' }}
+            >
+              <span style={{ color: '#E7EBC5', fontSize: 13, fontWeight: 700 }}>A</span>
+            </div>
+            <span className="font-semibold text-base" style={{ color: '#414073' }}>
+              Asignio
+            </span>
+          </div>
+
+          {/* Desktop page title */}
+          <div className="hidden md:block">
             <h1 className="font-semibold text-lg" style={{ color: '#414073' }}>
-              {NAV_ITEMS.find(n => n.path === location.pathname)?.label || 'Dashboard'}
+              {currentPage}
             </h1>
             <p className="text-xs mt-0.5" style={{ color: '#989788' }}>
               {new Date().toLocaleDateString('en-US', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
               })}
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div
-              className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold"
-              style={{ background: '#414073', color: '#E7EBC5' }}
-            >
-              {user.email?.charAt(0).toUpperCase()}
-            </div>
+          {/* Mobile page title */}
+          <div className="md:hidden">
+            <p className="text-sm font-semibold" style={{ color: '#414073' }}>
+              {currentPage}
+            </p>
+          </div>
+
+          {/* Avatar */}
+          <div
+            className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold cursor-pointer"
+            style={{ background: '#414073', color: '#E7EBC5' }}
+            onClick={() => navigate('/profile')}
+          >
+            {user.email?.charAt(0).toUpperCase()}
           </div>
         </header>
 
-        {/* Page content */}
-        <div className="flex-1 overflow-y-auto p-8" style={{ background: '#f8f7f4' }}>
+        {/* Page content — extra bottom padding on mobile for bottom nav */}
+        <div
+          className="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8"
+          style={{ background: '#f8f7f4' }}
+        >
           {children}
         </div>
 
       </main>
+
+      {/* ── BOTTOM NAV — mobile only ── */}
+      <nav
+        className="md:hidden fixed bottom-0 left-0 right-0 flex items-center justify-around px-2 z-50"
+        style={{
+          background: 'linear-gradient(180deg, #414073 0%, #4C3957 100%)',
+          borderTop: '1px solid rgba(255,255,255,0.08)',
+          paddingTop: '10px',
+          paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))'
+        }}
+      >
+        {NAV_ITEMS.map((item) => {
+          const isActive = location.pathname === item.path
+          return (
+            <button
+              key={item.id}
+              onClick={() => navigate(item.path)}
+              className="flex flex-col items-center gap-1 px-3 py-1 rounded-xl transition-all"
+              style={{
+                color: isActive ? '#E7EBC5' : '#A78682',
+                minWidth: 52
+              }}
+            >
+              {item.icon}
+              <span
+                className="text-xs font-medium"
+                style={{ fontSize: 10 }}
+              >
+                {item.label}
+              </span>
+              {isActive && (
+                <div
+                  className="absolute bottom-1.5 w-1 h-1 rounded-full"
+                  style={{ background: '#E7EBC5' }}
+                />
+              )}
+            </button>
+          )
+        })}
+      </nav>
 
     </div>
   )

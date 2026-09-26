@@ -12,14 +12,10 @@ function StatusBadge({ status }) {
   const styles = {
     pending: { background: '#fef3c7', color: '#d97706' },
     done: { background: '#dcfce7', color: '#16a34a' },
-    overdue: { background: '#fee2e2', color: '#dc2626' }
   }
   const s = styles[status] || styles.pending
   return (
-    <span
-      className="text-xs font-medium px-2.5 py-1 rounded-full capitalize"
-      style={s}
-    >
+    <span className="text-xs font-medium px-2.5 py-1 rounded-full capitalize" style={s}>
       {status}
     </span>
   )
@@ -97,10 +93,7 @@ function AssignmentsPage({ user }) {
   }
 
   const handleDeleteAssignment = async (id) => {
-    const { error } = await supabase
-      .from('assignments')
-      .delete()
-      .eq('id', id)
+    const { error } = await supabase.from('assignments').delete().eq('id', id)
     if (error) console.log(error)
     else setAssignments(assignments.filter((a) => a.id !== id))
   }
@@ -108,9 +101,7 @@ function AssignmentsPage({ user }) {
   const handleToggleStatus = async (id, currentStatus) => {
     const newStatus = currentStatus === 'pending' ? 'done' : 'pending'
     const { error } = await supabase
-      .from('assignments')
-      .update({ status: newStatus })
-      .eq('id', id)
+      .from('assignments').update({ status: newStatus }).eq('id', id)
     if (error) console.log(error)
     else setAssignments(assignments.map((a) =>
       a.id === id ? { ...a, status: newStatus } : a
@@ -125,17 +116,14 @@ function AssignmentsPage({ user }) {
     setGeneratingPlan(assignment.id)
     try {
       const { data, error } = await supabase.storage
-        .from('guidelines')
-        .download(assignment.file_url)
+        .from('guidelines').download(assignment.file_url)
       if (error) throw error
       const blob = await data
       const file = new File([blob], 'guideline.pdf', { type: 'application/pdf' })
       const text = await extractTextFromPDF(file)
       const plan = await generateAssignmentPlan(text, assignment.title)
       const { error: updateError } = await supabase
-        .from('assignments')
-        .update({ ai_plan: plan })
-        .eq('id', assignment.id)
+        .from('assignments').update({ ai_plan: plan }).eq('id', assignment.id)
       if (updateError) throw updateError
       setAssignments(assignments.map((a) =>
         a.id === assignment.id ? { ...a, ai_plan: plan } : a
@@ -159,9 +147,7 @@ function AssignmentsPage({ user }) {
     try {
       const eventId = await createCalendarEvent(assignment)
       const { error } = await supabase
-        .from('assignments')
-        .update({ calendar_event_id: eventId })
-        .eq('id', assignment.id)
+        .from('assignments').update({ calendar_event_id: eventId }).eq('id', assignment.id)
       if (error) throw error
       setAssignments(assignments.map((a) =>
         a.id === assignment.id ? { ...a, calendar_event_id: eventId } : a
@@ -187,16 +173,16 @@ function AssignmentsPage({ user }) {
     const diff = Math.ceil((new Date(dueDate) - new Date()) / (1000 * 60 * 60 * 24))
     if (diff < 0) return 'Overdue'
     if (diff === 0) return 'Due today'
-    if (diff === 1) return 'Due tomorrow'
+    if (diff === 1) return 'Tomorrow'
     return `${diff} days left`
   }
 
   const getDaysColor = (dueDate) => {
     const diff = Math.ceil((new Date(dueDate) - new Date()) / (1000 * 60 * 60 * 24))
-    if (diff < 0) return '#ef4444'
-    if (diff <= 2) return '#f97316'
-    if (diff <= 5) return '#eab308'
-    return '#70A37F'
+    if (diff < 0) return '#dc2626'
+    if (diff <= 2) return '#ea580c'
+    if (diff <= 5) return '#ca8a04'
+    return '#16a34a'
   }
 
   const filteredAssignments = assignments
@@ -207,36 +193,35 @@ function AssignmentsPage({ user }) {
       if (filter === 'individual') return a.type === 'individual'
       return true
     })
-    .filter(a =>
-      a.title.toLowerCase().includes(search.toLowerCase())
-    )
+    .filter(a => a.title.toLowerCase().includes(search.toLowerCase()))
 
   return (
     <div style={{ fontFamily: "'Inter', sans-serif" }}>
 
       {/* Page header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-5">
         <div>
-          <h2 className="text-xl font-bold" style={{ color: '#414073' }}>
+          <h2 className="text-lg md:text-xl font-bold" style={{ color: '#414073' }}>
             My Assignments
           </h2>
-          <p className="text-sm mt-0.5" style={{ color: '#989788' }}>
+          <p className="text-xs md:text-sm mt-0.5" style={{ color: '#989788' }}>
             {assignments.length} total · {assignments.filter(a => a.status === 'pending').length} pending
           </p>
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
+          className="flex items-center gap-2 px-3 md:px-4 py-2 md:py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
           style={{ background: 'linear-gradient(135deg, #414073, #4C3957)', color: '#E7EBC5' }}
         >
           <span>+</span>
-          <span>New Assignment</span>
+          <span className="hidden sm:inline">New Assignment</span>
+          <span className="sm:hidden">New</span>
         </button>
       </div>
 
-      {/* Search and filter bar */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        <div className="relative flex-1">
+      {/* Search and filter */}
+      <div className="flex flex-col gap-3 mb-5">
+        <div className="relative">
           <svg
             className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
             style={{ color: '#989788' }}
@@ -262,7 +247,7 @@ function AssignmentsPage({ user }) {
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className="px-3 py-2 rounded-xl text-xs font-medium capitalize transition-all"
+              className="px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all"
               style={{
                 background: filter === f ? '#414073' : '#ffffff',
                 color: filter === f ? '#E7EBC5' : '#989788',
@@ -281,21 +266,19 @@ function AssignmentsPage({ user }) {
           {[1,2,3].map(i => (
             <div
               key={i}
-              className="rounded-2xl p-6 animate-pulse"
+              className="rounded-2xl animate-pulse"
               style={{ background: '#ffffff', height: 100 }}
             />
           ))}
         </div>
       ) : filteredAssignments.length === 0 ? (
         <div
-          className="rounded-2xl p-16 text-center"
+          className="rounded-2xl p-12 md:p-16 text-center"
           style={{ background: '#ffffff', border: '1px solid #f0ede8' }}
         >
           <p className="text-4xl mb-3">📭</p>
-          <p className="font-semibold" style={{ color: '#414073' }}>
-            No assignments found
-          </p>
-          <p className="text-sm mt-1" style={{ color: '#989788' }}>
+          <p className="font-semibold text-sm" style={{ color: '#414073' }}>No assignments found</p>
+          <p className="text-xs mt-1" style={{ color: '#989788' }}>
             {search ? 'Try a different search term' : 'Click "+ New Assignment" to get started'}
           </p>
         </div>
@@ -304,26 +287,24 @@ function AssignmentsPage({ user }) {
           {filteredAssignments.map((assignment) => (
             <div
               key={assignment.id}
-              className="rounded-2xl p-6 transition-all"
+              className="rounded-2xl p-4 md:p-6 transition-all"
               style={{
                 background: '#ffffff',
-                border: '1px solid #f0ede8'
+                border: '1px solid #f0ede8',
+                borderLeft: `3px solid ${getDaysColor(assignment.due_date)}`
               }}
             >
               {/* Top row */}
-              <div className="flex items-start justify-between gap-4 mb-3">
+              <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="flex-1 min-w-0">
-                  <h3
-                    className="font-semibold text-base truncate"
-                    style={{ color: '#414073' }}
-                  >
+                  <h3 className="font-semibold text-sm md:text-base truncate" style={{ color: '#414073' }}>
                     {assignment.title}
                   </h3>
-                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                  <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                     <TypeBadge type={assignment.type} />
                     <StatusBadge status={assignment.status} />
                     <span
-                      className="text-xs font-medium"
+                      className="text-xs font-semibold"
                       style={{ color: getDaysColor(assignment.due_date) }}
                     >
                       {getDaysLeft(assignment.due_date)}
@@ -331,8 +312,8 @@ function AssignmentsPage({ user }) {
                   </div>
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <p className="text-xs font-medium" style={{ color: '#989788' }}>Due date</p>
-                  <p className="text-sm font-semibold mt-0.5" style={{ color: '#414073' }}>
+                  <p className="text-xs" style={{ color: '#989788' }}>Due</p>
+                  <p className="text-xs md:text-sm font-semibold mt-0.5" style={{ color: '#414073' }}>
                     {new Date(assignment.due_date).toLocaleDateString('en-US', {
                       month: 'short', day: 'numeric', year: 'numeric'
                     })}
@@ -340,7 +321,7 @@ function AssignmentsPage({ user }) {
                 </div>
               </div>
 
-              {/* Invite link for group owners */}
+              {/* Invite link */}
               {assignment.type === 'group' &&
                 assignment.invite_code &&
                 assignment.user_id === user.id && (
@@ -348,7 +329,7 @@ function AssignmentsPage({ user }) {
                   className="flex items-center gap-2 px-3 py-2 rounded-xl mb-3"
                   style={{ background: '#f3f0ff' }}
                 >
-                  <svg width="14" height="14" fill="none" stroke="#414073" strokeWidth="2" viewBox="0 0 24 24">
+                  <svg width="12" height="12" fill="none" stroke="#414073" strokeWidth="2" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
                   </svg>
                   <p className="text-xs font-mono flex-1 truncate" style={{ color: '#414073' }}>
@@ -361,7 +342,7 @@ function AssignmentsPage({ user }) {
                       )
                       alert('Link copied!')
                     }}
-                    className="text-xs font-medium px-2 py-1 rounded-lg"
+                    className="text-xs font-medium px-2 py-1 rounded-lg flex-shrink-0"
                     style={{ background: '#414073', color: '#E7EBC5' }}
                   >
                     Copy
@@ -369,62 +350,52 @@ function AssignmentsPage({ user }) {
                 </div>
               )}
 
-              {/* Member task view */}
-              {assignment.type === 'group' &&
-                assignment.user_id !== user.id && (
-                <MemberTaskView
-                  assignmentId={assignment.id}
-                  userEmail={user.email}
-                />
+              {/* Member task */}
+              {assignment.type === 'group' && assignment.user_id !== user.id && (
+                <MemberTaskView assignmentId={assignment.id} userEmail={user.email} />
               )}
 
-              {/* Action buttons row */}
-              <div className="flex items-center justify-between mt-4 pt-4" style={{ borderTop: '1px solid #f8f7f4' }}>
+              {/* Action buttons */}
+              <div
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-4 pt-3"
+                style={{ borderTop: '1px solid #f8f7f4' }}
+              >
                 <div className="flex items-center gap-2 flex-wrap">
-
-                  {/* Generate AI Plan */}
                   {assignment.file_url && assignment.user_id === user.id && (
                     <button
                       onClick={() => handleGeneratePlan(assignment)}
                       disabled={generatingPlan === assignment.id}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-                      style={{
-                        background: '#f3f0ff',
-                        color: '#414073'
-                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all active:scale-95"
+                      style={{ background: '#f3f0ff', color: '#414073' }}
                     >
                       <span>✨</span>
                       <span>
                         {generatingPlan === assignment.id
                           ? 'Generating...'
-                          : assignment.ai_plan
-                            ? 'Regenerate Plan'
-                            : 'Generate AI Plan'}
+                          : assignment.ai_plan ? 'Regenerate' : 'AI Plan'}
                       </span>
                     </button>
                   )}
 
-                  {/* View AI Plan */}
                   {assignment.ai_plan && (
                     <button
                       onClick={() => togglePlan(assignment.id)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all active:scale-95"
                       style={{
                         background: expandedPlans.has(assignment.id) ? '#414073' : '#f8f7f4',
                         color: expandedPlans.has(assignment.id) ? '#E7EBC5' : '#414073'
                       }}
                     >
                       <span>{expandedPlans.has(assignment.id) ? '▲' : '▼'}</span>
-                      <span>{expandedPlans.has(assignment.id) ? 'Hide Plan' : 'View Plan'}</span>
+                      <span>{expandedPlans.has(assignment.id) ? 'Hide' : 'View Plan'}</span>
                     </button>
                   )}
 
-                  {/* Calendar sync */}
                   {assignment.user_id === user.id && (
                     <button
                       onClick={() => handleSyncToCalendar(assignment)}
                       disabled={syncingCalendar === assignment.id}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all active:scale-95"
                       style={{
                         background: assignment.calendar_event_id ? '#dcfce7' : '#f8f7f4',
                         color: assignment.calendar_event_id ? '#16a34a' : '#414073'
@@ -434,33 +405,28 @@ function AssignmentsPage({ user }) {
                       <span>
                         {syncingCalendar === assignment.id
                           ? 'Syncing...'
-                          : assignment.calendar_event_id
-                            ? 'Synced'
-                            : 'Sync Calendar'}
+                          : assignment.calendar_event_id ? 'Synced' : 'Calendar'}
                       </span>
                     </button>
                   )}
-
                 </div>
 
-                <div className="flex items-center gap-2">
-                  {/* Toggle status */}
+                <div className="flex items-center gap-2 flex-wrap">
                   <button
                     onClick={() => handleToggleStatus(assignment.id, assignment.status)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all active:scale-95"
                     style={{
                       background: assignment.status === 'done' ? '#fef3c7' : '#dcfce7',
                       color: assignment.status === 'done' ? '#d97706' : '#16a34a'
                     }}
                   >
-                    {assignment.status === 'done' ? '↩ Reopen' : '✓ Mark Done'}
+                    {assignment.status === 'done' ? '↩ Reopen' : '✓ Done'}
                   </button>
 
-                  {/* Manage Group */}
                   {assignment.type === 'group' && assignment.user_id === user.id && (
                     <button
                       onClick={() => setManagingGroup(assignment)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium active:scale-95"
                       style={{ background: '#dbeafe', color: '#41658A' }}
                     >
                       👥 Manage
@@ -471,39 +437,33 @@ function AssignmentsPage({ user }) {
                     <>
                       <button
                         onClick={() => setEditingAssignment(assignment)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium active:scale-95"
                         style={{ background: '#f3f0ff', color: '#414073' }}
                       >
                         ✏️ Edit
                       </button>
                       <button
                         onClick={() => handleDeleteAssignment(assignment.id)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium active:scale-95"
                         style={{ background: '#fee2e2', color: '#dc2626' }}
                       >
-                        🗑️ Delete
+                        🗑️
                       </button>
                     </>
                   )}
                 </div>
               </div>
 
-              {/* AI Plan expanded */}
+              {/* AI Plan */}
               {assignment.ai_plan && expandedPlans.has(assignment.id) && (
                 <div
-                  className="mt-4 p-4 rounded-xl"
+                  className="mt-3 p-4 rounded-xl"
                   style={{ background: '#f8f7f4', border: '1px solid #f0ede8' }}
                 >
-                  <p
-                    className="text-xs font-semibold mb-2 flex items-center gap-1.5"
-                    style={{ color: '#414073' }}
-                  >
+                  <p className="text-xs font-semibold mb-2" style={{ color: '#414073' }}>
                     ✨ AI Study Plan
                   </p>
-                  <p
-                    className="text-xs whitespace-pre-wrap leading-relaxed"
-                    style={{ color: '#6F5060' }}
-                  >
+                  <p className="text-xs whitespace-pre-wrap leading-relaxed" style={{ color: '#6F5060' }}>
                     {assignment.ai_plan}
                   </p>
                 </div>
@@ -522,7 +482,6 @@ function AssignmentsPage({ user }) {
           onClose={() => setShowForm(false)}
         />
       )}
-
       {editingAssignment && (
         <EditAssignmentForm
           user={user}
@@ -531,7 +490,6 @@ function AssignmentsPage({ user }) {
           onClose={() => setEditingAssignment(null)}
         />
       )}
-
       {managingGroup && (
         <ManageGroup
           assignment={managingGroup}
