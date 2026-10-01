@@ -1,5 +1,9 @@
+const API_URL = import.meta.env.DEV
+  ? 'http://localhost:5000/api/generate-plan'
+  : '/api/generate-plan'
+
 export const generateAssignmentPlan = async (extractedText, assignmentTitle) => {
-  const response = await fetch('http://localhost:5000/api/generate-plan', {
+  const response = await fetch(API_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
