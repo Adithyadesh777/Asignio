@@ -133,7 +133,7 @@ function Login() {
         <div className="relative z-10 space-y-3">
           <h1 className="text-5xl font-serif font-semibold text-white tracking-tight">Asignio</h1>
           <p className="text-slate-400 text-lg font-light max-w-sm leading-relaxed">
-            Fluid architectural data nodes structuring your personal task landscapes flawlessly.
+            you will never miss a assignment again.
           </p>
         </div>
 
