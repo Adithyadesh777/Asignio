@@ -1,9 +1,5 @@
 import Groq from 'groq-sdk'
 
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY
-})
-
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
@@ -24,6 +20,10 @@ export default async function handler(req, res) {
   }
 
   try {
+    const groq = new Groq({
+      apiKey: process.env.GROQ_API_KEY
+    })
+
     const completion = await groq.chat.completions.create({
       model: 'openai/gpt-oss-120b',
       messages: [
@@ -37,7 +37,7 @@ export default async function handler(req, res) {
             Assignment Guidelines:
             ${text}
 
-            Based on the above guidelines, create a clear, detailed, step-by-step action plan for the student to complete this assignment successfully.
+            Based on the above guidelines, create a clear detailed step-by-step action plan for the student to complete this assignment successfully.
 
             Format your response as a numbered list of steps. Each step should:
             - Be specific and actionable
@@ -55,7 +55,7 @@ export default async function handler(req, res) {
     res.status(200).json({ plan })
 
   } catch (error) {
-    console.error('Groq error:', error)
-    res.status(500).json({ error: 'Failed to generate plan' })
+    console.error('Groq error:', error.message)
+    res.status(500).json({ error: error.message })
   }
 }
